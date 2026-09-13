@@ -7,6 +7,8 @@ coverage/
 .env.*
 db/*.db
 db/*.db-journal
+db/*.db-shm
+db/*.db-wal
 backend/tests/tmp/
 .DS_Store
 Thumbs.db
