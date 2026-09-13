@@ -8,6 +8,16 @@
 
 **Input**: User description: "Sistema de reservas de canchas de pádel con autenticación de usuarios, exploración/selección de 5 canchas fijas con grilla de disponibilidad de 24 horas, creación de reservas con prevención de colisiones, y un panel de gestión de reservas propias (futuras/pasadas, con cancelación)."
 
+## Clarifications
+
+### Session 2026-09-13
+
+- Q: ¿En qué momento una reserva deja de considerarse "futura/activa" y pasa a ser "pasada": cuando llega su hora de inicio, o cuando llega su hora de fin? → A: Al terminar (hora de fin). Mientras la reserva está en curso sigue contando como "futura/vigente": bloquea nuevas reservas del mismo usuario, aparece en "futuras" y es cancelable hasta que termine.
+- Q: ¿El spec debe exigir explícitamente que las contraseñas se almacenen con hashing seguro (nunca en texto plano)? → A: Sí, requisito explícito.
+- Q: ¿Qué requisito mínimo de contraseña debe exigir el registro (FR-001)? → A: Mínimo 8 caracteres, sin más reglas.
+- Q: ¿La sesión de un usuario autenticado debe expirar automáticamente tras un tiempo, o permanecer activa indefinidamente hasta cerrar sesión manualmente? → A: Expira tras 24 horas de inactividad.
+- Q: ¿El registro de usuario requiere verificar el correo electrónico (enlace/código de confirmación) antes de activar la cuenta? → A: Sin verificación de correo; la cuenta queda activa de inmediato.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Registro e inicio de sesión (Priority: P1)
@@ -62,6 +72,7 @@ Un jugador con sesión activa consulta un panel con sus reservas futuras y su hi
 3. **Given** una reserva pasada en el historial, **When** el usuario la visualiza, **Then** el sistema no ofrece la opción de cancelarla.
 4. **Given** un usuario intenta cancelar una reserva, **When** el usuario no confirma la acción (se arrepiente), **Then** la reserva permanece activa sin cambios.
 5. **Given** un usuario con sesión activa, **When** consulta su panel, **Then** solo ve sus propias reservas, nunca las de otros usuarios.
+6. **Given** una reserva cancelada en el historial, **When** el usuario la visualiza, **Then** el sistema no ofrece ninguna accion para ejecutar.
 
 ### Edge Cases
 
@@ -75,9 +86,9 @@ Un jugador con sesión activa consulta un panel con sus reservas futuras y su hi
 
 ### Functional Requirements
 
-- **FR-001**: El sistema MUST permitir a un visitante registrarse con correo electrónico y contraseña, impidiendo correos duplicados.
+- **FR-001**: El sistema MUST permitir a un visitante registrarse con correo electrónico y contraseña, impidiendo correos duplicados. La contraseña MUST tener un mínimo de 8 caracteres; no se exigen reglas adicionales de complejidad (mayúsculas, números o símbolos).
 - **FR-002**: El sistema MUST permitir a un usuario registrado iniciar sesión con su correo electrónico y contraseña.
-- **FR-003**: El sistema MUST mantener una sesión activa por usuario autenticado y permitir cerrar sesión.
+- **FR-003**: El sistema MUST mantener una sesión activa por usuario autenticado y permitir cerrar sesión. La sesión MUST expirar automáticamente tras 24 horas de inactividad, exigiendo un nuevo inicio de sesión.
 - **FR-004**: El sistema MUST bloquear el acceso a la disponibilidad completa y a la creación/gestión de reservas a cualquier usuario sin sesión activa.
 - **FR-005**: El sistema MUST restringir la gestión (visualización detallada, cancelación) de una reserva exclusivamente al usuario dueño de esa reserva.
 - **FR-006**: El sistema MUST listar de forma estática exactamente 5 canchas: Cancha Laureles, Cancha El Poblado, Cancha Belén, Cancha Robledo y Cancha Envigado.
@@ -87,7 +98,7 @@ Un jugador con sesión activa consulta un panel con sus reservas futuras y su hi
 - **FR-010**: El sistema MUST impedir la creación de reservas sobre fechas u horarios que ya hayan transcurrido respecto al momento actual.
 - **FR-011**: El sistema MUST revalidar, en el momento de confirmar una reserva, que el bloque horario siga disponible para esa cancha y fecha, y MUST rechazar la reserva con un mensaje de error claro si el bloque fue tomado por otro usuario entre la consulta y la confirmación.
 - **FR-012**: El sistema MUST garantizar que, ante dos intentos de reserva concurrentes sobre el mismo bloque, cancha y fecha, únicamente uno tenga éxito.
-- **FR-013**: El sistema MUST impedir que un usuario tenga más de una reserva activa a la vez, de forma global en todo el club: si el usuario ya tiene una reserva futura vigente (en cualquiera de las 5 canchas), el sistema MUST rechazar cualquier intento de crear una nueva reserva hasta que la anterior se cancele o transcurra.
+- **FR-013**: El sistema MUST impedir que un usuario tenga más de una reserva activa a la vez, de forma global en todo el club: si el usuario ya tiene una reserva futura vigente (en cualquiera de las 5 canchas), el sistema MUST rechazar cualquier intento de crear una nueva reserva hasta que la anterior se cancele o transcurra. Una reserva se considera "vigente" (y por tanto bloqueante) desde el momento de su creación hasta que llega su hora de **fin**; mientras el bloque reservado está en curso (hora actual entre inicio y fin), la reserva sigue contando como vigente.
 - **FR-014**: El sistema MUST proveer a cada usuario autenticado un panel de "Mis reservas" que separe sus reservas futuras de su historial de reservas pasadas.
 - **FR-015**: El sistema MUST mostrar, para cada reserva en el panel, al menos el nombre de la cancha, la fecha y la hora.
 - **FR-016**: El sistema MUST permitir a un usuario cancelar una reserva futura propia, solicitando una confirmación explícita antes de aplicar la cancelación.
@@ -95,12 +106,13 @@ Un jugador con sesión activa consulta un panel con sus reservas futuras y su hi
 - **FR-018**: El sistema MUST impedir la cancelación de reservas ya pasadas.
 - **FR-019**: El sistema MUST permitir seleccionar en el calendario cualquier fecha futura sin límite máximo de anticipación (no existe un tope de días hacia adelante para reservar).
 - **FR-020**: El sistema MUST comunicar todo rechazo de una acción de reserva (colisión de horario, reserva activa existente, fecha pasada, cancha inexistente) mediante un mensaje de error claro y comprensible para el usuario final, sin exponer detalles técnicos internos.
+- **FR-021**: El sistema MUST almacenar las contraseñas de los usuarios únicamente mediante un algoritmo de hashing criptográfico seguro y no reversible; en ningún caso se guarda o registra una contraseña en texto plano.
 
 ### Key Entities
 
 - **Usuario**: Persona que se registra e inicia sesión con correo electrónico y contraseña; es dueño de cero o más reservas y solo puede gestionar las suyas.
 - **Cancha**: Una de las 5 instalaciones fijas del club (Laureles, El Poblado, Belén, Robledo, Envigado); catálogo inmutable, sin atributos configurables por el usuario final.
-- **Reserva**: Vínculo entre un Usuario, una Cancha, una fecha y un bloque horario de una hora; tiene un estado (futura/activa, pasada, cancelada) y determina qué bloques se muestran como "Reservados" en la grilla de disponibilidad.
+- **Reserva**: Vínculo entre un Usuario, una Cancha, una fecha y un bloque horario de una hora; tiene un estado (futura/activa, pasada, cancelada) y determina qué bloques se muestran como "Reservados" en la grilla de disponibilidad. La transición de "futura/activa" a "pasada" ocurre en la hora de **fin** del bloque, no en la hora de inicio: mientras el bloque está en curso, la reserva sigue siendo "futura/activa" (vigente, bloqueante y cancelable).
 
 ## Success Criteria *(mandatory)*
 
@@ -116,6 +128,7 @@ Un jugador con sesión activa consulta un panel con sus reservas futuras y su hi
 ## Assumptions
 
 - El registro solo requiere correo electrónico y contraseña; no se solicitan otros datos de perfil (nombre, teléfono) en esta iteración.
+- El registro no requiere verificación de correo electrónico (sin enlace/código de confirmación); la cuenta queda activa de inmediato tras el registro y no se requiere integrar un servicio de envío de correos.
 - No existe en esta iteración un flujo de recuperación/restablecimiento de contraseña olvidada; el usuario que la pierde debe contactar al club por fuera del sistema.
 - El club opera conceptualmente 24 horas para efectos de la grilla de disponibilidad (los 24 bloques del día son reservables salvo los que ya transcurrieron); no existe un horario de apertura/cierre distinto que oculte bloques adicionales.
 - Una reserva cancelada no cuenta como "reserva activa" ni aparece en el historial de reservas pasadas del usuario como una reserva cumplida; se trata como retirada.
