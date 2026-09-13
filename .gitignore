@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+coverage/
+*.log
+.env
+.env.*
+db/*.db
+db/*.db-journal
+backend/tests/tmp/
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
